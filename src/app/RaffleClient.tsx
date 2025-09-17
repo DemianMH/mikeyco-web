@@ -297,10 +297,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
               <MessageSquare size={20} />
               <span>33 3392 4652 (WhatsApp)</span>
             </a>
-            <a href="tel:3327987257" className="flex items-center gap-2 text-brand-beige-light hover:text-brand-beige-rosy transition-colors">
-              <Phone size={20} />
-              <span>33 2798 7257 (Llamadas)</span>
-            </a>
+    
           </div>
         </div>
         <div className="text-center text-brand-olive mt-8 pt-6 border-t border-brand-olive border-opacity-30">
