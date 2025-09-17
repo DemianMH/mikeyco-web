@@ -2,6 +2,8 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import RaffleClient from './RaffleClient';
 
+export const dynamic = 'force-dynamic'; // <-- AGREGA ESTA LÍNEA
+
 interface TicketPackage {
   code: string;
   tickets: number;
