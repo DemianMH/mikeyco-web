@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, getDocs, doc, getDoc, addDoc, query, where, writeBatch, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, query, where, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import Image from 'next/image';
 
 interface Raffle {
@@ -34,23 +34,7 @@ export default function AdminPage() {
     const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
     const [winner, setWinner] = useState<Ticket | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isDrawing, setIsDrawing] = useState(false); // Nuevo estado para el sorteo
-    const [showCreateForm, setShowCreateForm] = useState(false);
-    const [newRaffleData, setNewRaffleData] = useState<Partial<Raffle>>({
-        productName: '',
-        title: '',
-        description: '',
-        watchInfo: '',
-        imageUrl: '',
-        totalTickets: 0,
-        isActive: false,
-        ticketPackages: [
-            { code: 'Normal', tickets: 1, price: 150, priceText: '$150 MXN' },
-            { code: '5X', tickets: 5, price: 600, priceText: '$600 MXN' },
-            { code: 'VIP10', tickets: 10, price: 1150, priceText: '$1,150 MXN' },
-            { code: 'VIP50', tickets: 50, price: 5000, priceText: '$5,000 MXN' }
-        ]
-    });
+    const [isDrawing, setIsDrawing] = useState(false);
 
     const fetchRaffles = async () => {
         setIsLoading(true);
@@ -85,24 +69,19 @@ export default function AdminPage() {
           setPendingTickets([]);
           return;
         }
-
         const selected = raffles.find(r => r.id === raffleId);
-
         if (selected) {
             setIsLoading(true);
             setSelectedRaffle(selected);
-
             try {
                 const ticketsCollection = collection(db, 'raffles', raffleId, 'tickets');
                 const ticketSnapshot = await getDocs(ticketsCollection);
                 const ticketsList = ticketSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Ticket));
-                
                 setSoldTickets(ticketsList.filter(t => t.status === 'sold'));
                 setPendingTickets(ticketsList.filter(t => t.status === 'pending'));
                 setWinner(null);
             } catch (error) {
                 console.error("Error al obtener los boletos:", error);
-                alert("No se pudieron cargar los boletos para esta rifa.");
             } finally {
                 setIsLoading(false);
             }
@@ -114,11 +93,8 @@ export default function AdminPage() {
             alert("No hay boletos vendidos para sortear.");
             return;
         }
-        
         setIsDrawing(true);
-        setWinner(null); // Ocultamos al ganador anterior si lo hubiera
-
-        // Simula un redoble de tambores durante 3 segundos
+        setWinner(null);
         setTimeout(() => {
             const randomIndex = Math.floor(Math.random() * soldTickets.length);
             const winningTicket = soldTickets[randomIndex];
@@ -127,34 +103,17 @@ export default function AdminPage() {
         }, 3000);
     };
 
-    const handleNewRaffleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value, type } = e.target;
-        const checked = (e.target as HTMLInputElement).checked;
-        setNewRaffleData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
-
-    const handleCreateRaffle = async (e: React.FormEvent) => {
-        e.preventDefault();
-        // Lógica para crear una nueva rifa
-    };
-    
-    const handleActivateRaffle = async (raffleToActivate: Raffle) => {
-        // Lógica para activar una rifa
-    };
-
     const handleConfirmPayment = async (ticket: Ticket) => {
         if (!selectedRaffle) return;
         if (!confirm(`¿Estás seguro de confirmar el pago para el boleto #${ticket.number} de ${ticket.buyerName}?`)) return;
-
         setIsLoading(true);
         try {
             const ticketRef = doc(db, 'raffles', selectedRaffle.id, 'tickets', ticket.id);
             await updateDoc(ticketRef, { status: 'sold', purchaseDate: Timestamp.now() });
-            alert('¡Pago confirmado! El boleto ha sido marcado como vendido.');
-            await handleSelectRaffle(selectedRaffle.id); // Recargar datos
+            alert('¡Pago confirmado!');
+            await handleSelectRaffle(selectedRaffle.id);
         } catch (error) {
             console.error("Error al confirmar el pago:", error);
-            alert("Hubo un error al confirmar el pago.");
         } finally {
             setIsLoading(false);
         }
@@ -162,17 +121,15 @@ export default function AdminPage() {
 
     const handleCancelReservation = async (ticket: Ticket) => {
         if (!selectedRaffle) return;
-        if (!confirm(`¿Estás seguro de cancelar la reserva del boleto #${ticket.number} de ${ticket.buyerName}? El boleto volverá a estar disponible.`)) return;
-
+        if (!confirm(`¿Estás seguro de cancelar la reserva del boleto #${ticket.number} de ${ticket.buyerName}?`)) return;
         setIsLoading(true);
         try {
             const ticketRef = doc(db, 'raffles', selectedRaffle.id, 'tickets', ticket.id);
             await deleteDoc(ticketRef);
-            alert('¡Reserva cancelada! El boleto está disponible de nuevo.');
+            alert('¡Reserva cancelada!');
             await handleSelectRaffle(selectedRaffle.id);
         } catch (error) {
             console.error("Error al cancelar la reserva:", error);
-            alert("Hubo un error al cancelar la reserva.");
         } finally {
             setIsLoading(false);
         }
@@ -232,7 +189,8 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                <div className="mt-8">
+                <div className="mt-8 border-t border-brand-olive pt-8">
+                    <h3 className="text-2xl font-serif mb-4 text-brand-beige-rosy">Realizar Sorteo</h3>
                     <button
                         onClick={handleDrawWinner}
                         disabled={soldTickets.length === 0 || isLoading || isDrawing}
@@ -241,9 +199,11 @@ export default function AdminPage() {
                         {isDrawing ? (
                             <>
                                 <svg className="animate-spin h-5 w-5 text-brand-darkest" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                'Sorteando...'
+                                {/* Corregimos el apóstrofe aquí */}
+                                Sorteando...
                             </>
                         ) : (
+                            // Y aquí también
                             '¡Sortear Ganador!'
                         )}
                     </button>
