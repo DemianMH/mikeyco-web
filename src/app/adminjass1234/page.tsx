@@ -34,6 +34,7 @@ export default function AdminPage() {
     const [pendingTickets, setPendingTickets] = useState<Ticket[]>([]);
     const [winner, setWinner] = useState<Ticket | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDrawing, setIsDrawing] = useState(false); // Nuevo estado para el sorteo
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [newRaffleData, setNewRaffleData] = useState<Partial<Raffle>>({
         productName: '',
@@ -62,7 +63,7 @@ export default function AdminPage() {
                     const ticketsQuery = query(collection(db, 'raffles', raffleId, 'tickets'), where("status", "==", "sold"));
                     const ticketsSnapshot = await getDocs(ticketsQuery);
                     const soldTicketsCount = ticketsSnapshot.size;
-                    return { id: raffleId, ...d.data(), soldTicketsCount } as Raffle;
+                    return { id: d.id, ...d.data(), soldTicketsCount } as Raffle;
                 })
             );
             setRaffles(rafflesList);
@@ -109,9 +110,21 @@ export default function AdminPage() {
     };
 
     const handleDrawWinner = () => {
-        if (soldTickets.length === 0) { alert("No hay boletos vendidos para sortear."); return; }
-        const randomIndex = Math.floor(Math.random() * soldTickets.length);
-        setWinner(soldTickets[randomIndex]);
+        if (soldTickets.length === 0) {
+            alert("No hay boletos vendidos para sortear.");
+            return;
+        }
+        
+        setIsDrawing(true);
+        setWinner(null); // Ocultamos al ganador anterior si lo hubiera
+
+        // Simula un redoble de tambores durante 3 segundos
+        setTimeout(() => {
+            const randomIndex = Math.floor(Math.random() * soldTickets.length);
+            const winningTicket = soldTickets[randomIndex];
+            setWinner(winningTicket);
+            setIsDrawing(false);
+        }, 3000);
     };
 
     const handleNewRaffleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -122,11 +135,11 @@ export default function AdminPage() {
 
     const handleCreateRaffle = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Implementación de crear rifa
+        // Lógica para crear una nueva rifa
     };
     
     const handleActivateRaffle = async (raffleToActivate: Raffle) => {
-        // Implementación de activar rifa
+        // Lógica para activar una rifa
     };
 
     const handleConfirmPayment = async (ticket: Ticket) => {
@@ -147,7 +160,6 @@ export default function AdminPage() {
         }
     };
 
-    // --- INICIO DE LA CORRECCIÓN ---
     const handleCancelReservation = async (ticket: Ticket) => {
         if (!selectedRaffle) return;
         if (!confirm(`¿Estás seguro de cancelar la reserva del boleto #${ticket.number} de ${ticket.buyerName}? El boleto volverá a estar disponible.`)) return;
@@ -157,8 +169,7 @@ export default function AdminPage() {
             const ticketRef = doc(db, 'raffles', selectedRaffle.id, 'tickets', ticket.id);
             await deleteDoc(ticketRef);
             alert('¡Reserva cancelada! El boleto está disponible de nuevo.');
-            // Corregimos el typo aquí:
-            await handleSelectRaffle(selectedRaffle.id); // Recargar datos
+            await handleSelectRaffle(selectedRaffle.id);
         } catch (error) {
             console.error("Error al cancelar la reserva:", error);
             alert("Hubo un error al cancelar la reserva.");
@@ -166,8 +177,6 @@ export default function AdminPage() {
             setIsLoading(false);
         }
     };
-    // --- FIN DE LA CORRECCIÓN ---
-
 
     return (
         <div className="container mx-auto p-8 bg-brand-darkest min-h-screen text-white">
@@ -223,7 +232,31 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                { /* Botón para sortear... */ }
+                <div className="mt-8">
+                    <button
+                        onClick={handleDrawWinner}
+                        disabled={soldTickets.length === 0 || isLoading || isDrawing}
+                        className="bg-brand-beige-rosy hover:bg-opacity-90 text-brand-darkest font-bold py-3 px-6 rounded-lg text-lg disabled:bg-gray-500 w-full flex items-center justify-center gap-2"
+                    >
+                        {isDrawing ? (
+                            <>
+                                <svg className="animate-spin h-5 w-5 text-brand-darkest" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                'Sorteando...'
+                            </>
+                        ) : (
+                            '¡Sortear Ganador!'
+                        )}
+                    </button>
+                </div>
+
+                {winner && (
+                    <div className="mt-8 p-6 bg-yellow-400 text-black rounded-lg text-center">
+                        <h3 className="text-2xl font-bold">¡El ganador es!</h3>
+                        <p className="text-5xl font-bold my-4">{winner.number.toString().padStart(3, '0')}</p>
+                        <p className="text-xl">Comprado por: {winner.buyerName}</p>
+                        <p className="text-md">{winner.buyerEmail}</p>
+                    </div>
+                )}
               </div>
             )}
         </div>
