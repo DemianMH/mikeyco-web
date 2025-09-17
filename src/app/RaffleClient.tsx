@@ -7,7 +7,15 @@ import { db } from '../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { loadStripe } from '@stripe/stripe-js';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// --- INICIO DE CAMBIOS ---
+
+// Verificamos si la clave de Stripe existe.
+const isStripeEnabled = !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Solo cargamos Stripe si la clave está presente.
+const stripePromise = isStripeEnabled ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!) : null;
+
+// --- FIN DE CAMBIOS ---
+
 
 interface TicketPackage {
   code: string;
@@ -61,12 +69,18 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
   }, [selectedTickets]);
 
   const handleCheckout = async (buyerInfo: { name: string; email: string }) => {
+    // Verificación adicional por si acaso
+    if (!stripePromise) {
+        alert("El sistema de pago no está habilitado.");
+        return;
+    }
+
     setIsLoading(true);
     const stripe = await stripePromise;
 
     const ticketsWithPrice = selectedTickets.map(num => ({
         number: num,
-        price: raffleData.ticketPackages.find((p: TicketPackage) => p.tickets === 1)?.price || 150 // Usa el precio del paquete de 1 boleto o un default
+        price: raffleData.ticketPackages.find((p: TicketPackage) => p.tickets === 1)?.price || 150
     }));
 
     const response = await fetch('/api/create-checkout-session', {
@@ -95,6 +109,17 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
     setIsLoading(false);
   };
 
+  // --- INICIO DE CAMBIOS ---
+  // Nueva función para el botón 'Continuar'
+  const handleContinueClick = () => {
+    if (!isStripeEnabled) {
+      alert('El sistema de pago no está habilitado en este momento. Por favor, contacta al administrador.');
+      return;
+    }
+    setShowPayment(true);
+  };
+  // --- FIN DE CAMBIOS ---
+
   const PaymentModal = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -110,6 +135,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
 
     return (
       <form onSubmit={handleSubmit} className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+        {/* ... (El resto del modal no cambia) ... */}
         <div className="bg-brand-darkest border border-brand-olive rounded-lg p-8 max-w-md w-full relative">
           <button type="button" onClick={() => setShowPayment(false)} className="absolute top-4 right-4 text-brand-beige-light hover:text-white">
             <X size={24} />
@@ -166,10 +192,9 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
   return (
     <div className="min-h-screen bg-brand-darkest">
       {showPayment && <PaymentModal />}
-      <header className="py-6 px-4 md:px-8 flex justify-center items-center">
-        <Image src="/mikeyco-logo-largo-blanco.png" alt="Mike & Co Logo" width={300} height={100} priority />
-      </header>
+      {/* ... (El resto del componente no cambia, pero actualiza el botón de 'Continuar') ... */}
       <main className="px-4 md:px-8">
+        {/* ... (secciones hero, packages, tickets) ... */}
         <section id="hero" className="text-center py-12 md:py-20">
           <h1 className="font-serif text-4xl md:text-6xl font-bold text-white leading-tight">{raffleData.title}</h1>
           <p className="text-brand-beige-light mt-4 max-w-2xl mx-auto">{raffleData.description}</p>
@@ -177,7 +202,6 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
             <Image src={raffleData.imageUrl} alt={raffleData.productName} width={1000} height={600} className="object-cover" />
           </div>
         </section>
-
         <section id="packages" className="py-12 max-w-4xl mx-auto">
           <h2 className="font-serif text-3xl md:text-4xl text-white text-center mb-8">Paquetes y Precios</h2>
           <div className="overflow-x-auto">
@@ -201,7 +225,6 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
             </table>
           </div>
         </section>
-
         <section id="tickets" className="py-12 max-w-4xl mx-auto">
           <h2 className="font-serif text-3xl md:text-4xl text-white text-center mb-8">Elige tus Números</h2>
           <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
@@ -228,7 +251,6 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
             })}
           </div>
         </section>
-
         {selectedTickets.length > 0 && (
           <div className="sticky bottom-0 left-0 right-0 bg-brand-dark bg-opacity-90 backdrop-blur-sm p-4 z-40">
             <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
@@ -240,7 +262,9 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
               </div>
               <div className="flex items-center gap-4">
                 <p className="text-white text-2xl font-bold">${totalCost.toLocaleString('es-MX')}</p>
-                <button onClick={() => setShowPayment(true)} className="bg-brand-beige-rosy text-brand-darkest font-bold py-3 px-6 rounded-md hover:bg-opacity-90 transition-colors flex items-center gap-2">
+                {/* --- INICIO DE CAMBIOS --- */}
+                <button onClick={handleContinueClick} className="bg-brand-beige-rosy text-brand-darkest font-bold py-3 px-6 rounded-md hover:bg-opacity-90 transition-colors flex items-center gap-2">
+                {/* --- FIN DE CAMBIOS --- */}
                   <ShoppingCart size={20} />
                   Continuar
                 </button>
@@ -249,8 +273,8 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
           </div>
         )}
       </main>
-
       <footer className="mt-20 py-10 px-4 md:px-8 border-t border-brand-olive">
+        {/* ... (El footer no cambia) ... */}
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="text-center md:text-left">
             <Image src="/mikeyco-logo-corto-blanco.png" alt="Mike & Co Isotipo" width={150} height={80} />

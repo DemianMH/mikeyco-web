@@ -3,15 +3,24 @@ import { db } from '@/lib/firebase';
 import { doc, writeBatch } from 'firebase/firestore';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-
 export async function POST(request: Request) {
+    // --- INICIO DE CAMBIOS ---
+    const stripeSecret = process.env.STRIPE_SECRET_KEY;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    // Verificamos que las claves necesarias para el webhook existan.
+    if (!stripeSecret || !webhookSecret) {
+        return new NextResponse('El webhook de pago no está configurado por el administrador.', { status: 503 });
+    }
+    // --- FIN DE CAMBIOS ---
+
+    const stripe = new Stripe(stripeSecret);
     const signature = request.headers.get('stripe-signature');
     let event;
 
     try {
         const body = await request.text();
-        event = stripe.webhooks.constructEvent(body, signature!, process.env.STRIPE_WEBHOOK_SECRET!);
+        event = stripe.webhooks.constructEvent(body, signature!, webhookSecret);
     } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
         return new NextResponse(`Webhook Error: ${errorMessage}`, { status: 400 });
@@ -24,7 +33,6 @@ export async function POST(request: Request) {
         try {
             const parsedTicketNumbers = JSON.parse(ticketNumbers);
             
-            // Usar un batch para escribir todos los boletos en una sola operación
             const batch = writeBatch(db);
             parsedTicketNumbers.forEach((number: number) => {
                 const ticketRef = doc(db, 'raffles', raffleId, 'tickets', String(number));

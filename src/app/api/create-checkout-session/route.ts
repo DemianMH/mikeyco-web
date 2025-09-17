@@ -1,14 +1,24 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-
 interface Ticket {
   number: number;
   price: number;
 }
 
 export async function POST(request: Request) {
+  // --- INICIO DE CAMBIOS ---
+  // Verificamos si la clave secreta de Stripe está configurada.
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: { message: 'El sistema de pago no está configurado por el administrador.' } },
+      { status: 503 } // 503 Service Unavailable
+    );
+  }
+  // --- FIN DE CAMBIOS ---
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
   try {
     const { tickets, raffleId, raffleName, buyerInfo } = await request.json();
 
