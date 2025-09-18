@@ -2,16 +2,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import { Instagram, Phone, MessageSquare, X, ShoppingCart, Copy, AlertCircle } from 'lucide-react';
+import { Instagram, MessageSquare, X, ShoppingCart, Copy, AlertCircle, Zap } from 'lucide-react';
 import { db } from '../lib/firebase';
-// --- INICIO DE LA CORRECCIÓN ---
 import { collection, onSnapshot, writeBatch, Timestamp, doc } from 'firebase/firestore';
-// --- FIN DE LA CORRECCIÓN ---
 
-// --- NUEVA INTERFAZ PARA BOLETOS ---
 interface Ticket {
   number: number;
-  status: 'sold' | 'pending'; // Los boletos ahora pueden estar vendidos o pendientes
+  status: 'sold' | 'pending';
   buyerName?: string;
   buyerEmail?: string;
   reservationTimestamp?: Timestamp;
@@ -38,12 +35,12 @@ interface Raffle {
 
 export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
   const [selectedTickets, setSelectedTickets] = useState<number[]>([]);
-  const [unavailableTickets, setUnavailableTickets] = useState<Ticket[]>([]); // Boletos vendidos y pendientes
+  const [unavailableTickets, setUnavailableTickets] = useState<Ticket[]>([]);
   const [showReservationModal, setShowReservationModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [randomQuantity, setRandomQuantity] = useState('');
 
   useEffect(() => {
-    // Escuchamos en tiempo real los boletos vendidos Y pendientes
     const ticketsCollection = collection(db, 'raffles', raffleData.id, 'tickets');
     const unsubscribe = onSnapshot(ticketsCollection, (snapshot) => {
       const ticketsList = snapshot.docs.map(doc => doc.data() as Ticket);
@@ -61,19 +58,27 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
     );
   };
 
+  // --- INICIO DE CAMBIOS: ACTUALIZACIÓN DE CÁLCULO DE COSTO ---
   const totalCost = useMemo(() => {
     const numTickets = selectedTickets.length;
     if (numTickets === 0) return 0;
-    const fifties = Math.floor(numTickets / 50);
-    const remainingAfterFifties = numTickets % 50;
-    const tens = Math.floor(remainingAfterFifties / 10);
-    const remainingAfterTens = remainingAfterFifties % 10;
-    const fives = Math.floor(remainingAfterTens / 5);
-    const singles = remainingAfterTens % 5;
-    return (fifties * 5000) + (tens * 1150) + (fives * 600) + (singles * 150);
-  }, [selectedTickets]);
 
-  // --- FUNCIÓN TOTALMENTE NUEVA PARA CREAR RESERVACIONES ---
+    const fifties = Math.floor(numTickets / 50);
+    let remaining = numTickets % 50;
+    
+    const twenties = Math.floor(remaining / 20);
+    remaining %= 20;
+
+    const tens = Math.floor(remaining / 10);
+    remaining %= 10;
+    
+    const fives = Math.floor(remaining / 5);
+    const singles = remaining % 5;
+    
+    return (fifties * 5000) + (twenties * 2000) + (tens * 1150) + (fives * 600) + (singles * 150);
+  }, [selectedTickets]);
+  // --- FIN DE CAMBIOS ---
+
   const handleCreateReservation = async (buyerInfo: { name: string; email: string }) => {
     setIsLoading(true);
     try {
@@ -103,7 +108,28 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
     }
   };
 
-  // --- MODAL TOTALMENTE NUEVO PARA MOSTRAR DATOS BANCARIOS ---
+  const handleRandomSelection = () => {
+    const quantity = parseInt(randomQuantity, 10);
+    if (isNaN(quantity) || quantity <= 0) {
+      alert("Por favor, ingresa una cantidad válida de boletos.");
+      return;
+    }
+
+    const allTicketNumbers = Array.from({ length: raffleData.totalTickets }, (_, i) => i + 1);
+    const unavailableNumbers = unavailableTickets.map(t => t.number);
+    const availableTickets = allTicketNumbers.filter(num => !unavailableNumbers.includes(num));
+
+    if (quantity > availableTickets.length) {
+      alert(`No hay suficientes boletos disponibles. Solo quedan ${availableTickets.length}.`);
+      return;
+    }
+
+    const shuffled = availableTickets.sort(() => 0.5 - Math.random());
+    const randomSelection = shuffled.slice(0, quantity).sort((a, b) => a - b);
+    setSelectedTickets(randomSelection);
+    setRandomQuantity('');
+  };
+
   const ReservationModal = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -130,9 +156,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
           </button>
           <h2 className="font-serif text-3xl text-center text-white mb-2">Reservar Boletos</h2>
           <p className="text-center text-brand-beige-light mb-6">Completa tus datos para reservar tus números. La reservación es válida por 24 horas.</p>
-
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Columna de datos de pago */}
             <div className="space-y-4">
               <div>
                 <h3 className="font-bold text-white mb-2 text-lg">Paso 1: Realiza tu pago</h3>
@@ -162,7 +186,6 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
                 <p className="text-sm">Una vez realizado el pago, envía tu comprobante junto con los números de boleto y tu nombre al WhatsApp <a href="https://wa.me/523333924652" target="_blank" className="font-bold underline">33 3392 4652</a> para confirmar tu compra.</p>
               </div>
             </div>
-            {/* Columna de datos del comprador */}
             <div className="space-y-4">
               <h3 className="font-bold text-white mb-2 text-lg">Paso 2: Ingresa tus datos para reservar</h3>
               <div>
@@ -219,8 +242,8 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
                 </tr>
               </thead>
               <tbody>
-                {raffleData.ticketPackages.map((pkg: TicketPackage) => (
-                  <tr key={pkg.code} className="border-t border-brand-olive">
+                {raffleData.ticketPackages.map((pkg, index) => (
+                  <tr key={index} className="border-t border-brand-olive">
                     <td className="p-4 text-brand-beige-light">{pkg.code}</td>
                     <td className="p-4 text-brand-beige-light">{pkg.tickets} boleto(s)</td>
                     <td className="p-4 text-brand-beige-rosy font-bold">{pkg.priceText}</td>
@@ -232,12 +255,33 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
         </section>
         <section id="tickets" className="py-12 max-w-4xl mx-auto">
           <h2 className="font-serif text-3xl md:text-4xl text-white text-center mb-8">Elige tus Números</h2>
+          <div className="mb-8 p-4 bg-brand-dark rounded-lg border border-brand-olive flex flex-col sm:flex-row items-center justify-center gap-4">
+              <label htmlFor="random-quantity" className="text-brand-beige-light font-semibold">
+                ¿No sabes cuál elegir? Ingresa la cantidad y los elegimos por ti:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="random-quantity"
+                  type="number"
+                  min="1"
+                  value={randomQuantity}
+                  onChange={(e) => setRandomQuantity(e.target.value)}
+                  placeholder="Cantidad"
+                  className="bg-brand-darkest text-white border border-brand-olive rounded w-24 py-2 px-3 leading-tight focus:outline-none focus:ring-2 focus:ring-brand-beige-rosy"
+                />
+                <button
+                  onClick={handleRandomSelection}
+                  className="bg-brand-beige-rosy text-brand-darkest font-bold py-2 px-4 rounded-md hover:bg-opacity-90 transition-colors flex items-center gap-2"
+                >
+                  <Zap size={16} />
+                  Aleatorio
+                </button>
+              </div>
+          </div>
           <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
             {Array.from({ length: raffleData.totalTickets }, (_, i) => i + 1).map((number) => {
               const ticketInfo = unavailableTickets.find(t => t.number === number);
               const isSelected = selectedTickets.includes(number);
-
-              // --- LÓGICA DE ESTILOS DE BOLETOS ACTUALIZADA ---
               let className = 'bg-brand-dark hover:bg-brand-olive text-brand-beige-light';
               let disabled = false;
 
@@ -245,7 +289,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
                 disabled = true;
                 className = ticketInfo.status === 'sold' 
                   ? 'bg-red-800 text-white cursor-not-allowed opacity-70' 
-                  : 'bg-yellow-600 text-white cursor-not-allowed opacity-80'; // Pendiente
+                  : 'bg-yellow-600 text-white cursor-not-allowed opacity-80';
               } else if (isSelected) {
                 className = 'bg-brand-beige-rosy text-brand-darkest scale-110';
               }
@@ -297,7 +341,6 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
               <MessageSquare size={20} />
               <span>33 3392 4652 (WhatsApp)</span>
             </a>
-    
           </div>
         </div>
         <div className="text-center text-brand-olive mt-8 pt-6 border-t border-brand-olive border-opacity-30">
