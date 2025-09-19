@@ -2,13 +2,16 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import RaffleClient from './RaffleClient';
 
-export const dynamic = 'force-dynamic'; // <-- AGREGA ESTA LÍNEA
+export const dynamic = 'force-dynamic';
 
+// --- INICIO DE CORRECCIÓN: Se actualizan las interfaces para que coincidan ---
 interface TicketPackage {
-  code: string;
-  tickets: number;
-  price: number;
-  priceText: string;
+    code: string;
+    price: number;
+    paidTickets: number;
+    freeTickets: number;
+    totalTickets: number;
+    displayText: string;
 }
 
 interface Raffle {
@@ -17,10 +20,12 @@ interface Raffle {
   title: string;
   description: string;
   imageUrl: string;
+  watchInfo?: string;
   totalTickets: number;
   isActive: boolean;
   ticketPackages: TicketPackage[];
 }
+// --- FIN DE CORRECCIÓN ---
 
 
 export default async function RifaPage() {
@@ -28,20 +33,17 @@ export default async function RifaPage() {
 
   try {
     const rafflesCollection = collection(db, 'raffles');
-    // Creamos una consulta para encontrar la rifa con el campo isActive = true
     const q = query(rafflesCollection, where("isActive", "==", true), limit(1));
     const raffleSnapshot = await getDocs(q);
 
     if (!raffleSnapshot.empty) {
       const raffleDoc = raffleSnapshot.docs[0];
-      // Combinamos el ID del documento con sus datos
       raffleData = { id: raffleDoc.id, ...raffleDoc.data() } as Raffle;
     }
   } catch (error) {
     console.error("Error al obtener la rifa activa desde Firestore:", error);
   }
 
-  // Si no se encuentra ninguna rifa activa, mostramos un mensaje
   if (!raffleData) {
     return (
       <div className="min-h-screen bg-brand-darkest flex items-center justify-center text-white text-center p-4">
@@ -53,6 +55,5 @@ export default async function RifaPage() {
     );
   }
   
-  // Si se encuentra, pasamos los datos de Firestore al componente cliente
   return <RaffleClient raffleData={raffleData} />;
 }
