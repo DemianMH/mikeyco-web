@@ -4,14 +4,11 @@ import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, addDoc, query, where, writeBatch, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import Image from 'next/image';
 
-// --- NUEVA ESTRUCTURA DE PAQUETES ---
 interface TicketPackage {
     code: string;
+    tickets: number;
     price: number;
-    paidTickets: number;
-    freeTickets: number;
-    totalTickets: number;
-    displayText: string;
+    priceText: string;
 }
 
 interface Raffle {
@@ -48,12 +45,12 @@ export default function AdminPage() {
     const [showCreateForm, setShowCreateForm] = useState(false);
 
     const defaultPackages: TicketPackage[] = [
-        { code: 'Normal', price: 150, paidTickets: 1, freeTickets: 0, totalTickets: 1, displayText: '1 boleto por $150' },
-        { code: '5X', price: 500, paidTickets: 5, freeTickets: 1, totalTickets: 6, displayText: 'Paga 5 boletos y llévate 6 (1 de regalo)' },
-        { code: 'VIP10', price: 1050, paidTickets: 10, freeTickets: 3, totalTickets: 13, displayText: 'Paga 10 boletos y llévate 13 (3 de regalo)' },
-        { code: 'VIP20', price: 2000, paidTickets: 20, freeTickets: 6, totalTickets: 26, displayText: 'Paga 20 boletos y llévate 26 (6 de regalo)' },
-        { code: 'VIP50', price: 5000, paidTickets: 50, freeTickets: 15, totalTickets: 65, displayText: 'Paga 50 boletos y llévate 65 (15 de regalo)' },
-        { code: 'VIP500', price: 55000, paidTickets: 500, freeTickets: 150, totalTickets: 650, displayText: 'Paga 500 boletos y llévate 650 (150 de regalo)' }
+        { code: '1 Boleto', tickets: 1, price: 150, priceText: '$150 MXN' },
+        { code: '5x Boletos', tickets: 5, price: 500, priceText: '$500 MXN (1 boleto de regalo)' },
+        { code: 'VIP 10', tickets: 10, price: 1050, priceText: '$1,050 MXN (3 boletos de regalo)' },
+        { code: 'VIP 20', tickets: 20, price: 2000, priceText: '$2,000 MXN (6 boletos de regalo)' },
+        { code: 'VIP 50', tickets: 50, price: 5000, priceText: '$5,000 MXN (15 boletos de regalo)' },
+        { code: 'VIP 500', tickets: 500, price: 55000, priceText: '$55,000 MXN (150 boletos de regalo)' }
     ];
 
     const [newRaffleData, setNewRaffleData] = useState({
@@ -137,7 +134,6 @@ export default function AdminPage() {
     const handleNewRaffleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
-
         setNewRaffleData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) || 0 : value)
