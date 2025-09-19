@@ -16,7 +16,7 @@ interface Ticket {
 
 interface TicketPackage {
   code: string;
-  tickets: number; // Cantidad de boletos a pagar
+  tickets: number;
   price: number;
   priceText: string;
 }
@@ -243,7 +243,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
           <h1 className="font-serif text-4xl md:text-6xl font-bold text-white leading-tight">{raffleData.title}</h1>
           <p className="text-brand-beige-light mt-4 max-w-2xl mx-auto">{raffleData.description}</p>
           <div className="mt-8 max-w-3xl mx-auto bg-brand-dark rounded-lg overflow-hidden">
-            <Image src="/mikeyco-logo-largo-blanco.png" alt={raffleData.productName} width={1000} height={600} className="object-cover" />
+            <Image src={raffleData.imageUrl} alt={raffleData.productName} width={1000} height={600} className="object-cover" />
           </div>
           {raffleData.watchInfo && (
             <div className="mt-8 max-w-2xl mx-auto text-left bg-brand-dark p-6 rounded-lg border border-brand-olive">
@@ -369,7 +369,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
               <Instagram size={20} />
               <span>_mikeandco_</span>
             </a>
-            <a href="https://wa.me/523317417313" target="_blank" className="font-bold underline">
+            <a href="https://wa.me/523317417313" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-brand-beige-light hover:text-brand-beige-rosy transition-colors">
               <MessageSquare size={20} />
               <span>33 1741 7313 (WhatsApp)</span>
             </a>

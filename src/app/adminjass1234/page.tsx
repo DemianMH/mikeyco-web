@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, addDoc, query, where, writeBatch, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import Image from 'next/image';
 
+// --- INICIO DE CORRECCIÓN: Interfaces actualizadas ---
 interface TicketPackage {
     code: string;
     tickets: number;
@@ -23,6 +24,7 @@ interface Raffle {
     ticketPackages: TicketPackage[];
     soldTicketsCount?: number;
 }
+// --- FIN DE CORRECCIÓN ---
 
 interface Ticket {
     id: string;
@@ -134,6 +136,7 @@ export default function AdminPage() {
     const handleNewRaffleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
+
         setNewRaffleData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) || 0 : value)
