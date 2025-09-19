@@ -4,12 +4,16 @@ import RaffleClient from './RaffleClient';
 
 export const dynamic = 'force-dynamic';
 
-// --- INICIO DE CORRECCIÓN: Interfaces actualizadas a la estructura original ---
+// --- ESTRUCTURA DE PAQUETES CORRECTA Y FINAL ---
 interface TicketPackage {
     code: string;
-    tickets: number;
     price: number;
-    priceText: string;
+    paidTickets: number;
+    freeTickets: number;
+    totalTickets: number;
+    displayText: string;
+    tickets: number; // Add missing property
+    priceText: string; // Add missing property
 }
 
 interface Raffle {
@@ -23,7 +27,6 @@ interface Raffle {
   isActive: boolean;
   ticketPackages: TicketPackage[];
 }
-// --- FIN DE CORRECCIÓN ---
 
 
 export default async function RifaPage() {
