@@ -51,7 +51,7 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
   }, [raffleData.id]);
   
   useEffect(() => {
-    if (selectedPackage) return; // Si se seleccionó un paquete, no mostramos notificaciones de selección manual
+    if (selectedPackage) return;
     
     const numSelected = selectedTickets.length;
     const promotions = [...raffleData.ticketPackages].sort((a, b) => b.paidTickets - a.paidTickets);
@@ -98,7 +98,32 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
   }, [selectedTickets, selectedPackage, raffleData.ticketPackages]);
 
   const handleCreateReservation = async (buyerInfo: { name: string; email: string }) => {
-    // ... (Sin cambios)
+    setIsLoading(true);
+    try {
+      const batch = writeBatch(db);
+      const now = Timestamp.now();
+      
+      selectedTickets.forEach(ticketNumber => {
+        const ticketRef = doc(db, 'raffles', raffleData.id, 'tickets', String(ticketNumber));
+        batch.set(ticketRef, {
+          number: ticketNumber,
+          buyerName: buyerInfo.name,
+          buyerEmail: buyerInfo.email,
+          status: 'pending',
+          reservationTimestamp: now
+        });
+      });
+
+      await batch.commit();
+      alert(`¡Tus boletos [${selectedTickets.join(', ')}] han sido reservados!\n\nTienes 24 horas para completar tu pago y enviar tu comprobante por WhatsApp.`);
+      clearSelection();
+      setShowReservationModal(false);
+    } catch (error) {
+      console.error("Error al crear la reservación:", error);
+      alert("Hubo un error al reservar tus boletos. Por favor, intenta de nuevo.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handlePackageSelection = (pkg: TicketPackage) => {
@@ -157,31 +182,101 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
     setSelectedPackage(null);
   };
 
+  // --- CONTENIDO COMPLETO DEL MODAL RESTAURADO ---
   const ReservationModal = () => {
-    // TODO: Implement the modal content here.
-    // Example placeholder:
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!name || !email) {
+        alert("Por favor, completa tu nombre y correo para la reservación.");
+        return;
+      }
+      handleCreateReservation({ name, email });
+    }
+
+    const copyToClipboard = (text: string, label: string) => {
+      navigator.clipboard.writeText(text);
+      alert(`${label} copiado al portapapeles`);
+    };
+
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md w-full">
-          <h2 className="text-xl font-bold mb-4">Reservar boletos</h2>
-          {/* Add your reservation form or content here */}
-          <button
-            className="mt-4 bg-brand-beige-rosy text-brand-darkest py-2 px-4 rounded"
-            onClick={() => setShowReservationModal(false)}
-          >
-            Cerrar
-          </button>
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 p-4">
+            <form onSubmit={handleSubmit} className="bg-brand-darkest border border-brand-olive rounded-lg p-6 md:p-8 max-w-2xl w-full relative max-h-[90vh] overflow-y-auto">
+                <button type="button" onClick={() => setShowReservationModal(false)} className="absolute top-4 right-4 text-brand-beige-light hover:text-white"><X size={24} /></button>
+                <h2 className="font-serif text-3xl text-center text-white mb-2">Reservar Boletos</h2>
+                <p className="text-center text-brand-beige-light mb-6">Completa tus datos para reservar tus números. La reservación es válida por 24 horas.</p>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white mb-2 text-lg">Paso 1: Realiza tu pago</h3>
+                        <div className="bg-brand-dark p-4 rounded-lg border border-brand-olive">
+                            <p className="font-semibold text-white">PARA TRANSFERENCIA BANCARIA</p>
+                            <p className="text-sm text-brand-beige-light">Beneficiario: SINDICATO UNION DE TRABAJADORES Y EMPLEADOS DEL TRANSPORTE EN GENERAL DEL MUNICIPIO DE OCOTLAN</p>
+                            <p className="text-sm text-brand-beige-light">Institución: KUSPIT / UNALANAPAY</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-md font-mono text-brand-beige-rosy">CLABE: 653180003810254077</p>
+                                <Copy size={16} className="cursor-pointer text-brand-beige-light" onClick={() => copyToClipboard('653180003810254077', 'CLABE')} />
+                            </div>
+                        </div>
+                        <div className="bg-brand-dark p-4 rounded-lg border border-brand-olive">
+                            <p className="font-semibold text-white">PARA PAGOS EN EFECTIVO Y DEPÓSITO (ATM)</p>
+                            <p className="text-sm text-brand-beige-light">Beneficiario: SINDICATO DE TRABAJADORES Y OBREROS DE LA INDUSTRIA HOTELERA RESTAURANTES DE LA REPUBLICA MEXICANA.</p>
+                            <p className="text-sm text-brand-beige-light">Institución: BBVA MEXICO</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-md font-mono text-brand-beige-rosy">Cuenta: 0118833249</p>
+                                <Copy size={16} className="cursor-pointer text-brand-beige-light" onClick={() => copyToClipboard('0118833249', 'Número de cuenta')} />
+                            </div>
+                        </div>
+                        <div className="bg-yellow-900 border border-yellow-600 text-yellow-200 p-3 rounded-lg flex gap-2 items-start">
+                            <AlertCircle size={24} className="flex-shrink-0 mt-1"/>
+                            <p className="text-sm">Una vez realizado el pago, envía tu comprobante junto con los números de boleto y tu nombre al WhatsApp <a href="https://wa.me/523317417313" target="_blank" rel="noopener noreferrer" className="font-bold underline">33 1741 7313</a> para confirmar tu compra.</p>
+                        </div>
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white mb-2 text-lg">Paso 2: Ingresa tus datos para reservar</h3>
+                        <div>
+                            <label className="block text-sm font-medium text-brand-beige-light mb-1" htmlFor="buyerName">Nombre Completo</label>
+                            <input id="buyerName" type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-brand-dark border border-brand-olive rounded-md p-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-beige-rosy" required />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-brand-beige-light mb-1" htmlFor="buyerEmail">Correo Electrónico</label>
+                            <input id="buyerEmail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-brand-dark border border-brand-olive rounded-md p-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-beige-rosy" required />
+                        </div>
+                        <div className="bg-brand-dark p-4 rounded-lg">
+                            <p className="text-brand-beige-light">Boletos a reservar: <span className="font-bold text-white">{selectedTickets.join(', ')}</span></p>
+                            <p className="text-brand-beige-light">Total a pagar: <span className="font-bold text-white">${totalCost.toLocaleString('es-MX')} MXN</span></p>
+                        </div>
+                        <button type="submit" disabled={isLoading} className="w-full bg-brand-beige-rosy text-brand-darkest font-bold py-3 mt-6 rounded-md hover:bg-opacity-90 transition-colors flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                            {isLoading ? 'Reservando...' : 'Confirmar mi Reservación'}
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
-      </div>
     );
   };
 
   return (
     <div className="min-h-screen bg-brand-darkest">
       {showReservationModal && <ReservationModal />}
-      <header>{/* ... */}</header>
+      <header className="py-6 px-4 md:px-8 flex justify-center items-center">
+        <Image src="/mikeyco-logo-largo-blanco.png" alt="Mike & Co Logo" width={300} height={100} priority />
+      </header>
       <main className="px-4 md:px-8">
-        <section id="hero">{/* ... */}</section>
+        <section id="hero" className="text-center py-12 md:py-20">
+          <h1 className="font-serif text-4xl md:text-6xl font-bold text-white leading-tight">{raffleData.title}</h1>
+          <p className="text-brand-beige-light mt-4 max-w-2xl mx-auto">{raffleData.description}</p>
+          <div className="mt-8 max-w-3xl mx-auto bg-brand-dark rounded-lg overflow-hidden">
+            <Image src={raffleData.imageUrl} alt={raffleData.productName} width={1000} height={600} className="object-cover" />
+          </div>
+          {raffleData.watchInfo && (
+            <div className="mt-8 max-w-2xl mx-auto text-left bg-brand-dark p-6 rounded-lg border border-brand-olive">
+              <h3 className="font-serif text-2xl text-white mb-4">Detalles del Reloj</h3>
+              <p className="text-brand-beige-light text-lg whitespace-pre-wrap">{raffleData.watchInfo}</p>
+            </div>
+          )}
+        </section>
         
         <section id="packages" className="py-12 max-w-4xl mx-auto">
           <h2 className="font-serif text-3xl md:text-4xl text-white text-center mb-8">Elige un Paquete (Asignación Aleatoria)</h2>
@@ -287,7 +382,28 @@ export default function RaffleClient({ raffleData }: { raffleData: Raffle }) {
           </div>
         )}
       </main>
-      <footer>{/* ... */}</footer>
+      <footer className="mt-20 py-10 px-4 md:px-8 border-t border-brand-olive">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="text-center md:text-left">
+            <Image src="/mikeyco-logo-corto-blanco.png" alt="Mike & Co Isotipo" width={150} height={80} />
+            <p className="text-brand-beige-light mt-2">Mike & Co - Joyería y Relojería</p>
+          </div>
+          <div className="flex flex-col items-center md:items-end gap-3">
+            <h3 className="font-serif text-xl text-white">Contacto</h3>
+            <a href="https://www.instagram.com/_mikeandco_" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-brand-beige-light hover:text-brand-beige-rosy transition-colors">
+              <Instagram size={20} />
+              <span>_mikeandco_</span>
+            </a>
+            <a href="https://wa.me/523317417313" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-brand-beige-light hover:text-brand-beige-rosy transition-colors">
+              <MessageSquare size={20} />
+              <span>33 1741 7313 (WhatsApp)</span>
+            </a>
+          </div>
+        </div>
+        <div className="text-center text-brand-olive mt-8 pt-6 border-t border-brand-olive border-opacity-30">
+          <p>&copy; {new Date().getFullYear()} Mike & Co. Todos los derechos reservados.</p>
+        </div>
+      </footer>
     </div>
   );
 }
